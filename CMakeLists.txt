@@ -74,20 +74,23 @@ include(${CMAKE_CURRENT_LIST_DIR}/cherryusb.cmake)
 
 set(ldfragments "osal/idf/linker.lf")
 
+
 if(CONFIG_CHERRYUSB_HOST_CDC_ECM OR CONFIG_CHERRYUSB_HOST_CDC_RNDIS OR CONFIG_CHERRYUSB_HOST_CDC_NCM
 OR CONFIG_CHERRYUSB_HOST_ASIX OR CONFIG_CHERRYUSB_HOST_RTL8152 OR CONFIG_CHERRYUSB_HOST_BL616)
-list(APPEND cherryusb_srcs platform/none/usbh_lwip.c)
-idf_component_get_property(lwip lwip COMPONENT_LIB)
-target_compile_definitions(${lwip} PRIVATE "-DPBUF_POOL_BUFSIZE=1600")
+list(APPEND cherryusb_srcs platform/none/usbh_lwip_esp.c)
+# idf_component_get_property(lwip lwip COMPONENT_LIB)
+# target_compile_definitions(${lwip} PRIVATE "-DPBUF_POOL_BUFSIZE=1600")
 endif()
 
 idf_component_get_property(freertos_include freertos ORIG_INCLUDE_PATH)
 
 idf_component_register(SRCS ${cherryusb_srcs}
     INCLUDE_DIRS ${cherryusb_incs} ${freertos_include}
-    PRIV_REQUIRES usb
+    PRIV_REQUIRES usb esp_netif esp_eth
     LDFRAGMENTS  ${ldfragments}
 )
+
+
 
 if(CONFIG_CHERRYUSB_HOST)
     target_linker_script(${COMPONENT_LIB} INTERFACE "osal/idf/usbh_class_info.ld")

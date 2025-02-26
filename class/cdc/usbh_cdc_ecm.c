@@ -30,6 +30,8 @@ static USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_cdc_ecm_inttx_buffer[16]
 
 static struct usbh_cdc_ecm g_cdc_ecm_class;
 
+struct usb_osal_timer *usbh_cdc_ecm_link_timer_handle;
+
 static int usbh_cdc_ecm_set_eth_packet_filter(struct usbh_cdc_ecm *cdc_ecm_class, uint16_t filter_value)
 {
     struct usb_setup_packet *setup;
@@ -68,6 +70,19 @@ int usbh_cdc_ecm_get_connect_status(struct usbh_cdc_ecm *cdc_ecm_class)
         memcpy(cdc_ecm_class->speed, &g_cdc_ecm_inttx_buffer[8], 8);
     }
     return 0;
+}
+
+static void usbh_cdc_ecm_link_timer(void *arg)
+{
+    int prev_status = g_cdc_ecm_class.connect_status;
+    int ret = usbh_cdc_ecm_get_connect_status(&g_cdc_ecm_class);
+    if (ret < 0) {
+        return;
+    }
+    struct usbh_cdc_ecm *cdc_ecm_class = &g_cdc_ecm_class;
+    if (g_cdc_ecm_class.connect_status != prev_status) {
+        usbh_cdc_ecm_set_link_status(cdc_ecm_class);
+    }
 }
 
 static int usbh_cdc_ecm_connect(struct usbh_hubport *hport, uint8_t intf)
@@ -195,6 +210,8 @@ get_mac:
 
     strncpy(hport->config.intf[intf].devname, DEV_FORMAT, CONFIG_USBHOST_DEV_NAMELEN);
 
+    usbh_cdc_ecm_link_timer_handle = usb_osal_timer_create("usbh_cdc_ecm_link_timer", 1000, usbh_cdc_ecm_link_timer, NULL, true);
+
     USB_LOG_INFO("Register CDC ECM Class:%s\r\n", hport->config.intf[intf].devname);
 
     usbh_cdc_ecm_run(cdc_ecm_class);
@@ -220,6 +237,10 @@ static int usbh_cdc_ecm_disconnect(struct usbh_hubport *hport, uint8_t intf)
             usbh_kill_urb(&cdc_ecm_class->intin_urb);
         }
 
+        if (usbh_cdc_ecm_link_timer_handle) {
+            usb_osal_timer_delete(usbh_cdc_ecm_link_timer_handle);
+        }
+
         if (hport->config.intf[intf].devname[0] != '\0') {
             USB_LOG_INFO("Unregister CDC ECM Class:%s\r\n", hport->config.intf[intf].devname);
             usbh_cdc_ecm_stop(cdc_ecm_class);
@@ -235,8 +256,8 @@ void usbh_cdc_ecm_rx_thread(CONFIG_USB_OSAL_THREAD_SET_ARGV)
 {
     uint32_t g_cdc_ecm_rx_length;
     int ret;
-
-    (void)CONFIG_USB_OSAL_THREAD_GET_ARGV;
+    ƒ(void)
+    CONFIG_USB_OSAL_THREAD_GET_ARGV;
     USB_LOG_INFO("Create cdc ecm rx thread\r\n");
     // clang-format off
 find_class:
@@ -254,6 +275,10 @@ find_class:
         }
         usb_osal_msleep(128);
     }
+
+    struct usbh_cdc_ecm *cdc_ecm_class = &g_cdc_ecm_class;
+    usbh_cdc_ecm_set_link_status(cdc_ecm_class);
+    usb_osal_timer_start(usbh_cdc_ecm_link_timer_handle);
 
     g_cdc_ecm_rx_length = 0;
     while (1) {
@@ -311,6 +336,11 @@ __WEAK void usbh_cdc_ecm_run(struct usbh_cdc_ecm *cdc_ecm_class)
 }
 
 __WEAK void usbh_cdc_ecm_stop(struct usbh_cdc_ecm *cdc_ecm_class)
+{
+    (void)cdc_ecm_class;
+}
+
+__WEAK void usbh_cdc_ecm_set_link_status(struct usbh_cdc_ecm *cdc_ecm_class)
 {
     (void)cdc_ecm_class;
 }

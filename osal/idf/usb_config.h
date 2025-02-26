@@ -134,7 +134,7 @@
 #define CONFIG_USBHOST_PSC_PRIO 0
 #endif
 #ifndef CONFIG_USBHOST_PSC_STACKSIZE
-#define CONFIG_USBHOST_PSC_STACKSIZE 2048
+#define CONFIG_USBHOST_PSC_STACKSIZE 8192
 #endif
 
 // #define CONFIG_USBHOST_GET_STRING_DESC
@@ -215,7 +215,7 @@
 /* ================ USB Device Port Configuration ================*/
 
 #if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-#define ESP_USBD_BASE           0x60080000
+#define ESP_USBD_BASE 0x60080000
 
 #define CONFIG_USBDEV_MAX_BUS 1
 // esp32s2/s3 has 7 endpoints in device mode (include ep0)
@@ -224,21 +224,21 @@
 /* ---------------- DWC2 Configuration ---------------- */
 //esp32s2/s3 can support up to 5 IN endpoints(include ep0) at the same time
 #define CONFIG_USB_DWC2_RXALL_FIFO_SIZE (320 / 4)
-#define CONFIG_USB_DWC2_TX0_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX1_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX2_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX3_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX4_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX5_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX6_FIFO_SIZE (64 / 4)
-#define CONFIG_USB_DWC2_TX7_FIFO_SIZE (0 / 4)
-#define CONFIG_USB_DWC2_TX8_FIFO_SIZE (0 / 4)
+#define CONFIG_USB_DWC2_TX0_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX1_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX2_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX3_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX4_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX5_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX6_FIFO_SIZE   (64 / 4)
+#define CONFIG_USB_DWC2_TX7_FIFO_SIZE   (0 / 4)
+#define CONFIG_USB_DWC2_TX8_FIFO_SIZE   (0 / 4)
 
 #define CONFIG_USB_DWC2_DMA_ENABLE
 
 #elif CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32P4
 #define CONFIG_USB_HS
-#define ESP_USBD_BASE           0x60080000
+#define ESP_USBD_BASE        0x60080000
 // todo: check c5, p4 in later
 #define CONFIG_USBDEV_EP_NUM 7
 #else
@@ -248,7 +248,7 @@
 /* ================ USB Host Port Configuration ==================*/
 
 #if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-#define ESP_USBH_BASE               0x60080000
+#define ESP_USBH_BASE 0x60080000
 
 #define CONFIG_USBHOST_MAX_BUS 1
 // esp32s2/s3 has 8 endpoints in host mode (include ep0)
@@ -267,7 +267,7 @@
 
 #elif CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32P4
 // todo: check c5, p4 in later
-#define ESP_USBH_BASE               0x60080000
+#define ESP_USBH_BASE           0x60080000
 #define CONFIG_USBHOST_PIPE_NUM 8
 #else
 #error "Unsupported SoC"

@@ -765,7 +765,7 @@ enum rtl_register_content {
 #define RTL8152_RMS         (VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
 #define RTL8153_RMS         RTL8153_MAX_PACKET
 #define mtu_to_size(m)      ((m) + VLAN_ETH_HLEN + ETH_FCS_LEN)
-#define size_to_mtu(s)      ((s)-VLAN_ETH_HLEN - ETH_FCS_LEN)
+#define size_to_mtu(s)      ((s) - VLAN_ETH_HLEN - ETH_FCS_LEN)
 #define rx_reserved_size(x) (mtu_to_size(x) + sizeof(struct rx_desc) + RX_ALIGN)
 
 struct rx_desc {
@@ -1033,7 +1033,7 @@ static int generic_ocp_read(struct usbh_rtl8152 *tp, uint16_t index, uint16_t si
 static int generic_ocp_write(struct usbh_rtl8152 *tp, uint16_t index, uint16_t byteen,
                              uint16_t size, void *data, uint16_t type)
 {
-    int ret;
+    int ret = 0;
     uint16_t byteen_start, byteen_end, byen;
     uint16_t limit = 512;
     uint8_t *buf = data;

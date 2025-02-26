@@ -131,7 +131,7 @@ struct usbh_hub {
     uint8_t powerdelay;
     uint8_t tt_think;
     bool ismtt;
-    struct usb_hub_descriptor hub_desc; /* USB 2.0 only */
+    struct usb_hub_descriptor hub_desc;       /* USB 2.0 only */
     struct usb_hub_ss_descriptor hub_ss_desc; /* USB 3.0 only */
     struct usbh_hubport child[CONFIG_USBHOST_MAX_EHPORTS];
     struct usbh_hubport *parent;

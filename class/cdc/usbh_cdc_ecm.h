@@ -13,9 +13,9 @@ struct usbh_cdc_ecm {
     struct usb_endpoint_descriptor *bulkin;  /* Bulk IN endpoint */
     struct usb_endpoint_descriptor *bulkout; /* Bulk OUT endpoint */
     struct usb_endpoint_descriptor *intin;   /* Interrupt IN endpoint */
-    struct usbh_urb bulkout_urb; /* Bulk out endpoint */
-    struct usbh_urb bulkin_urb; /* Bulk IN endpoint */
-    struct usbh_urb intin_urb; /* Interrupt IN endpoint */
+    struct usbh_urb bulkout_urb;             /* Bulk out endpoint */
+    struct usbh_urb bulkin_urb;              /* Bulk IN endpoint */
+    struct usbh_urb intin_urb;               /* Interrupt IN endpoint */
 
     uint8_t ctrl_intf; /* Control interface number */
     uint8_t data_intf; /* Data interface number */
@@ -37,6 +37,7 @@ int usbh_cdc_ecm_get_connect_status(struct usbh_cdc_ecm *cdc_ecm_class);
 
 void usbh_cdc_ecm_run(struct usbh_cdc_ecm *cdc_ecm_class);
 void usbh_cdc_ecm_stop(struct usbh_cdc_ecm *cdc_ecm_class);
+void usbh_cdc_ecm_set_link_status(struct usbh_cdc_ecm *cdc_ecm_class);
 
 uint8_t *usbh_cdc_ecm_get_eth_txbuf(void);
 int usbh_cdc_ecm_eth_output(uint32_t buflen);

@@ -360,7 +360,7 @@ int usbh_enumerate(struct usbh_hubport *hport)
     int dev_addr;
     uint16_t ep_mps;
     uint8_t config_value;
-    uint8_t config_index;
+    uint8_t config_index = 0;
     int ret;
 
     hport->setup = &g_setup_buffer[hport->bus->busid][hport->parent->index - 1][hport->port - 1];
@@ -453,144 +453,152 @@ int usbh_enumerate(struct usbh_hubport *hport)
                  ((struct usb_device_descriptor *)ep0_request_buffer[hport->bus->busid])->idProduct,
                  ((struct usb_device_descriptor *)ep0_request_buffer[hport->bus->busid])->bcdDevice);
 
-    USB_LOG_INFO("The device has %d bNumConfigurations\r\n", ((struct usb_device_descriptor *)ep0_request_buffer[hport->bus->busid])->bNumConfigurations);
+    uint8_t numconfigurations = ((struct usb_device_descriptor *)ep0_request_buffer[hport->bus->busid])->bNumConfigurations;
 
-    config_index = 0;
-    USB_LOG_DBG("The device selects config %d\r\n", config_index);
+    USB_LOG_INFO("The device has %d bNumConfigurations\r\n", numconfigurations);
 
-    /* Read the first 9 bytes of the config descriptor */
-    setup->bmRequestType = USB_REQUEST_DIR_IN | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_DEVICE;
-    setup->bRequest = USB_REQUEST_GET_DESCRIPTOR;
-    setup->wValue = (uint16_t)((USB_DESCRIPTOR_TYPE_CONFIGURATION << 8) | config_index);
-    setup->wIndex = 0;
-    setup->wLength = USB_SIZEOF_CONFIG_DESC;
+    for (uint8_t i = 0; i < numconfigurations; i++) {
+        config_index = i;
 
-    ret = usbh_control_transfer(hport, setup, ep0_request_buffer[hport->bus->busid]);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to get config descriptor,errorcode:%d\r\n", ret);
-        goto errout;
-    }
+        USB_LOG_DBG("Testing device configuration %d\r\n", config_index);
 
-    parse_config_descriptor(hport, (struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid], USB_SIZEOF_CONFIG_DESC);
+        /* Read the first 9 bytes of the config descriptor */
+        setup->bmRequestType = USB_REQUEST_DIR_IN | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_DEVICE;
+        setup->bRequest = USB_REQUEST_GET_DESCRIPTOR;
+        setup->wValue = (uint16_t)((USB_DESCRIPTOR_TYPE_CONFIGURATION << 8) | config_index);
+        setup->wIndex = 0;
+        setup->wLength = USB_SIZEOF_CONFIG_DESC;
 
-    /* Read the full size of the configuration data */
-    uint16_t wTotalLength = ((struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid])->wTotalLength;
+        ret = usbh_control_transfer(hport, setup, ep0_request_buffer[hport->bus->busid]);
+        if (ret < 0) {
+            USB_LOG_ERR("Failed to get config descriptor,errorcode:%d\r\n", ret);
+            goto errout;
+        }
 
-    if (wTotalLength > CONFIG_USBHOST_REQUEST_BUFFER_LEN) {
-        ret = -USB_ERR_NOMEM;
-        USB_LOG_ERR("wTotalLength %d is overflow, default is %d\r\n", wTotalLength, CONFIG_USBHOST_REQUEST_BUFFER_LEN);
-        goto errout;
-    }
+        parse_config_descriptor(hport, (struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid], USB_SIZEOF_CONFIG_DESC);
 
-    setup->bmRequestType = USB_REQUEST_DIR_IN | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_DEVICE;
-    setup->bRequest = USB_REQUEST_GET_DESCRIPTOR;
-    setup->wValue = (uint16_t)((USB_DESCRIPTOR_TYPE_CONFIGURATION << 8) | config_index);
-    setup->wIndex = 0;
-    setup->wLength = wTotalLength;
+        /* Read the full size of the configuration data */
+        uint16_t wTotalLength = ((struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid])->wTotalLength;
 
-    ret = usbh_control_transfer(hport, setup, ep0_request_buffer[hport->bus->busid]);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to get full config descriptor,errorcode:%d\r\n", ret);
-        goto errout;
-    }
+        if (wTotalLength > CONFIG_USBHOST_REQUEST_BUFFER_LEN) {
+            ret = -USB_ERR_NOMEM;
+            USB_LOG_ERR("wTotalLength %d is overflow, default is %d\r\n", wTotalLength, CONFIG_USBHOST_REQUEST_BUFFER_LEN);
+            goto errout;
+        }
 
-    ret = parse_config_descriptor(hport, (struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid], wTotalLength);
-    if (ret < 0) {
-        USB_LOG_ERR("Parse config fail\r\n");
-        goto errout;
-    }
-    USB_LOG_INFO("The device has %d interfaces\r\n", ((struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid])->bNumInterfaces);
-    hport->raw_config_desc = usb_osal_malloc(wTotalLength + 1);
-    if (hport->raw_config_desc == NULL) {
-        ret = -USB_ERR_NOMEM;
-        USB_LOG_ERR("No memory to alloc for raw_config_desc\r\n");
-        goto errout;
-    }
+        setup->bmRequestType = USB_REQUEST_DIR_IN | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_DEVICE;
+        setup->bRequest = USB_REQUEST_GET_DESCRIPTOR;
+        setup->wValue = (uint16_t)((USB_DESCRIPTOR_TYPE_CONFIGURATION << 8) | config_index);
+        setup->wIndex = 0;
+        setup->wLength = wTotalLength;
 
-    config_value = ((struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid])->bConfigurationValue;
-    memcpy(hport->raw_config_desc, ep0_request_buffer[hport->bus->busid], wTotalLength);
-    hport->raw_config_desc[wTotalLength] = '\0';
+        ret = usbh_control_transfer(hport, setup, ep0_request_buffer[hport->bus->busid]);
+        if (ret < 0) {
+            USB_LOG_ERR("Failed to get full config descriptor,errorcode:%d\r\n", ret);
+            goto errout;
+        }
+
+        ret = parse_config_descriptor(hport, (struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid], wTotalLength);
+        if (ret < 0) {
+            USB_LOG_ERR("Parse config fail\r\n");
+            goto errout;
+        }
+        USB_LOG_INFO("The device has %d interfaces\r\n", ((struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid])->bNumInterfaces);
+        hport->raw_config_desc = usb_osal_malloc(wTotalLength + 1);
+        if (hport->raw_config_desc == NULL) {
+            ret = -USB_ERR_NOMEM;
+            USB_LOG_ERR("No memory to alloc for raw_config_desc\r\n");
+            goto errout;
+        }
+
+        config_value = ((struct usb_configuration_descriptor *)ep0_request_buffer[hport->bus->busid])->bConfigurationValue;
+        memcpy(hport->raw_config_desc, ep0_request_buffer[hport->bus->busid], wTotalLength);
+        hport->raw_config_desc[wTotalLength] = '\0';
 
 #ifdef CONFIG_USBHOST_GET_STRING_DESC
-    uint8_t string_buffer[128];
+        uint8_t string_buffer[128];
 
-    /* Get Manufacturer string */
-    memset(string_buffer, 0, 128);
-    ret = usbh_get_string_desc(hport, USB_STRING_MFC_INDEX, string_buffer);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to get Manufacturer string,errorcode:%d\r\n", ret);
-        goto errout;
-    }
+        /* Get Manufacturer string */
+        memset(string_buffer, 0, 128);
+        ret = usbh_get_string_desc(hport, USB_STRING_MFC_INDEX, string_buffer);
+        if (ret < 0) {
+            USB_LOG_ERR("Failed to get Manufacturer string,errorcode:%d\r\n", ret);
+            goto errout;
+        }
 
-    USB_LOG_INFO("Manufacturer: %s\r\n", string_buffer);
+        USB_LOG_INFO("Manufacturer: %s\r\n", string_buffer);
 
-    /* Get Product string */
-    memset(string_buffer, 0, 128);
-    ret = usbh_get_string_desc(hport, USB_STRING_PRODUCT_INDEX, string_buffer);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to get get Product string,errorcode:%d\r\n", ret);
-        goto errout;
-    }
+        /* Get Product string */
+        memset(string_buffer, 0, 128);
+        ret = usbh_get_string_desc(hport, USB_STRING_PRODUCT_INDEX, string_buffer);
+        if (ret < 0) {
+            USB_LOG_ERR("Failed to get get Product string,errorcode:%d\r\n", ret);
+            goto errout;
+        }
 
-    USB_LOG_INFO("Product: %s\r\n", string_buffer);
+        USB_LOG_INFO("Product: %s\r\n", string_buffer);
 
-    /* Get SerialNumber string */
-    memset(string_buffer, 0, 128);
-    ret = usbh_get_string_desc(hport, USB_STRING_SERIAL_INDEX, string_buffer);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to get get SerialNumber string,errorcode:%d\r\n", ret);
-        goto errout;
-    }
+        /* Get SerialNumber string */
+        memset(string_buffer, 0, 128);
+        ret = usbh_get_string_desc(hport, USB_STRING_SERIAL_INDEX, string_buffer);
+        if (ret < 0) {
+            USB_LOG_ERR("Failed to get get SerialNumber string,errorcode:%d\r\n", ret);
+            goto errout;
+        }
 
-    USB_LOG_INFO("SerialNumber: %s\r\n", string_buffer);
+        USB_LOG_INFO("SerialNumber: %s\r\n", string_buffer);
 #endif
-    /* Select device configuration 1 */
-    setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_DEVICE;
-    setup->bRequest = USB_REQUEST_SET_CONFIGURATION;
-    setup->wValue = config_value;
-    setup->wIndex = 0;
-    setup->wLength = 0;
+        /* Select device configuration 1 */
+        setup->bmRequestType = USB_REQUEST_DIR_OUT | USB_REQUEST_STANDARD | USB_REQUEST_RECIPIENT_DEVICE;
+        setup->bRequest = USB_REQUEST_SET_CONFIGURATION;
+        setup->wValue = config_value;
+        setup->wIndex = 0;
+        setup->wLength = 0;
 
-    ret = usbh_control_transfer(hport, setup, NULL);
-    if (ret < 0) {
-        USB_LOG_ERR("Failed to set configuration,errorcode:%d\r\n", ret);
-        goto errout;
-    }
+        ret = usbh_control_transfer(hport, setup, NULL);
+        if (ret < 0) {
+            USB_LOG_ERR("Failed to set configuration,errorcode:%d\r\n", ret);
+            goto errout;
+        }
 
 #ifdef CONFIG_USBHOST_MSOS_ENABLE
-    setup->bmRequestType = USB_REQUEST_DIR_IN | USB_REQUEST_VENDOR | USB_REQUEST_RECIPIENT_DEVICE;
-    setup->bRequest = CONFIG_USBHOST_MSOS_VENDOR_CODE;
-    setup->wValue = 0;
-    setup->wIndex = 0x0004;
-    setup->wLength = 16;
+        setup->bmRequestType = USB_REQUEST_DIR_IN | USB_REQUEST_VENDOR | USB_REQUEST_RECIPIENT_DEVICE;
+        setup->bRequest = CONFIG_USBHOST_MSOS_VENDOR_CODE;
+        setup->wValue = 0;
+        setup->wIndex = 0x0004;
+        setup->wLength = 16;
 
-    ret = usbh_control_transfer(hport, setup, ep0_request_buffer[hport->bus->busid]);
-    if (ret < 0 && (ret != -USB_ERR_STALL)) {
-        USB_LOG_ERR("Failed to get msosv1 compat id,errorcode:%d\r\n", ret);
-        goto errout;
-    }
-#endif
-    USB_LOG_INFO("Enumeration success, start loading class driver\r\n");
-    /*search supported class driver*/
-    for (uint8_t i = 0; i < hport->config.config_desc.bNumInterfaces; i++) {
-        intf_desc = &hport->config.intf[i].altsetting[0].intf_desc;
-
-        struct usbh_class_driver *class_driver = (struct usbh_class_driver *)usbh_find_class_driver(intf_desc->bInterfaceClass, intf_desc->bInterfaceSubClass, intf_desc->bInterfaceProtocol, hport->device_desc.idVendor, hport->device_desc.idProduct);
-
-        if (class_driver == NULL) {
-            USB_LOG_ERR("do not support Class:0x%02x,Subclass:0x%02x,Protocl:0x%02x\r\n",
-                        intf_desc->bInterfaceClass,
-                        intf_desc->bInterfaceSubClass,
-                        intf_desc->bInterfaceProtocol);
-
-            continue;
+        ret = usbh_control_transfer(hport, setup, ep0_request_buffer[hport->bus->busid]);
+        if (ret < 0 && (ret != -USB_ERR_STALL)) {
+            USB_LOG_ERR("Failed to get msosv1 compat id,errorcode:%d\r\n", ret);
+            goto errout;
         }
-        hport->config.intf[i].class_driver = class_driver;
-        USB_LOG_INFO("Loading %s class driver\r\n", class_driver->driver_name);
-        ret = CLASS_CONNECT(hport, i);
+#endif
+        USB_LOG_INFO("Enumeration success, start loading class driver\r\n");
+        /*search supported class driver*/
+        for (uint8_t i = 0; i < hport->config.config_desc.bNumInterfaces; i++) {
+            USB_LOG_DBG("testing interface %d\r\n", i);
+            intf_desc = &hport->config.intf[i].altsetting[0].intf_desc;
+
+            struct usbh_class_driver *class_driver = (struct usbh_class_driver *)usbh_find_class_driver(intf_desc->bInterfaceClass, intf_desc->bInterfaceSubClass, intf_desc->bInterfaceProtocol, hport->device_desc.idVendor, hport->device_desc.idProduct);
+
+            if (class_driver == NULL) {
+                USB_LOG_ERR("do not support Class:0x%02x,Subclass:0x%02x,Protocl:0x%02x\r\n",
+                            intf_desc->bInterfaceClass,
+                            intf_desc->bInterfaceSubClass,
+                            intf_desc->bInterfaceProtocol);
+
+                continue;
+            }
+            hport->config.intf[i].class_driver = class_driver;
+            USB_LOG_INFO("Loading %s class driver\r\n", class_driver->driver_name);
+            ret = CLASS_CONNECT(hport, i);
+            break;
+        }
     }
 
 errout:
+
     if (hport->raw_config_desc) {
         usb_osal_free(hport->raw_config_desc);
         hport->raw_config_desc = NULL;
