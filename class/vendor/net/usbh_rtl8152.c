@@ -19,6 +19,8 @@ USB_NOCACHE_RAM_SECTION USB_MEM_ALIGNX uint8_t g_rtl8152_buf[32];
 
 static struct usbh_rtl8152 g_rtl8152_class;
 
+struct usb_osal_timer *usbh_rtl8152_link_timer_handle;
+
 #define RTL8152_REQ_GET_REGS 0x05
 #define RTL8152_REQ_SET_REGS 0x05
 
@@ -1982,6 +1984,19 @@ int usbh_rtl8152_get_connect_status(struct usbh_rtl8152 *rtl8152_class)
     return 0;
 }
 
+static void usbh_rtl8152_link_timer(void *arg)
+{
+    int prev_status = g_rtl8152_class.connect_status;
+    int ret = usbh_rtl8152_get_connect_status(&g_rtl8152_class);
+    if (ret < 0) {
+        return;
+    }
+    struct usbh_rtl8152 *rtl8152_class = &g_rtl8152_class;
+    if (g_rtl8152_class.connect_status != prev_status) {
+        usbh_rtl8152_set_link_status(rtl8152_class);
+    }
+}
+
 static int usbh_rtl8152_connect(struct usbh_hubport *hport, uint8_t intf)
 {
     struct usb_endpoint_descriptor *ep_desc;
@@ -2096,6 +2111,8 @@ static int usbh_rtl8152_connect(struct usbh_hubport *hport, uint8_t intf)
 
     USB_LOG_INFO("Register RTL8152 Class:%s\r\n", hport->config.intf[intf].devname);
 
+    usbh_rtl8152_link_timer_handle = usb_osal_timer_create("usbh_rtl8152_link_timer", 1000, usbh_rtl8152_link_timer, NULL, true);
+
     usbh_rtl8152_run(rtl8152_class);
     return 0;
 }
@@ -2117,6 +2134,10 @@ static int usbh_rtl8152_disconnect(struct usbh_hubport *hport, uint8_t intf)
 
         if (rtl8152_class->intin) {
             usbh_kill_urb(&rtl8152_class->intin_urb);
+        }
+
+        if (usbh_rtl8152_link_timer_handle) {
+            usb_osal_timer_delete(usbh_rtl8152_link_timer_handle);
         }
 
         if (hport->config.intf[intf].devname[0] != '\0') {
@@ -2169,6 +2190,10 @@ find_class:
 
     rtl8152_set_rx_mode(&g_rtl8152_class);
     rtl8152_set_speed(&g_rtl8152_class, AUTONEG_ENABLE, g_rtl8152_class.supports_gmii ? SPEED_1000 : SPEED_100, DUPLEX_FULL);
+
+    struct usbh_rtl8152 *rtl8152_class = &g_rtl8152_class;
+    usbh_rtl8152_set_link_status(rtl8152_class);
+    usb_osal_timer_start(usbh_rtl8152_link_timer_handle);
 
     g_rtl8152_rx_length = 0;
     while (1) {
@@ -2255,6 +2280,11 @@ __WEAK void usbh_rtl8152_run(struct usbh_rtl8152 *rtl8152_class)
 }
 
 __WEAK void usbh_rtl8152_stop(struct usbh_rtl8152 *rtl8152_class)
+{
+    (void)rtl8152_class;
+}
+
+__WEAK void usbh_rtl8152_set_link_status(struct usbh_rtl8152 *rtl8152_class)
 {
     (void)rtl8152_class;
 }

@@ -256,8 +256,7 @@ void usbh_cdc_ecm_rx_thread(CONFIG_USB_OSAL_THREAD_SET_ARGV)
 {
     uint32_t g_cdc_ecm_rx_length;
     int ret;
-    ƒ(void)
-    CONFIG_USB_OSAL_THREAD_GET_ARGV;
+    (void)CONFIG_USB_OSAL_THREAD_GET_ARGV;
     USB_LOG_INFO("Create cdc ecm rx thread\r\n");
     // clang-format off
 find_class:
